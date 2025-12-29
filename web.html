@@ -16,16 +16,19 @@
         .table thead { background-color: #212529; color: white; }
         .job-title { font-weight: 700; color: #2c3e50; }
         .task-text { font-size: 0.85rem; color: #555; max-width: 400px; line-height: 1.5; }
-        .section-margin { margin-top: 4rem; }
-        .error-msg { color: #dc3545; font-size: 0.8rem; }
+        .debug-info { font-size: 0.75rem; color: #dc3545; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container mt-5 mb-5">
+    <div id="debug-log" style="background: #fff3f3; padding: 10px; border-radius: 5px; margin-bottom: 20px; display: none;">
+        <strong>[시스템 로그]</strong> <div id="log-content"></div>
+    </div>
+
     <div class="header-flex">
         <h2>경쟁사 채용 현황</h2>
-        <span class="badge bg-light text-dark border" id="last-update-saramin">확인 중...</span>
+        <span class="badge bg-light text-dark border" id="last-update-saramin">대기 중...</span>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -38,9 +41,9 @@
         </table>
     </div>
 
-    <div class="header-flex section-margin">
+    <div class="header-flex mt-5">
         <h2>BEP 채용 현황</h2>
-        <span class="badge bg-light text-dark border" id="last-update-bep">확인 중...</span>
+        <span class="badge bg-light text-dark border" id="last-update-bep">대기 중...</span>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle">
@@ -55,33 +58,38 @@
 </div>
 
 <script>
-    // 1. 캐시 방지를 위해 URL 뒤에 타임스탬프 추가
-    const t = new Date().getTime();
-    const SARAMIN_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/saramin_results.csv?v=${t}`;
-    const BEP_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/BEP_EV_Recruitment_Master.csv?v=${t}`;
+    // 캐시 방지를 위해 매번 다른 시간값 추가
+    const cacheVal = new Date().getTime();
+    const SARAMIN_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/saramin_results.csv?v=${cacheVal}`;
+    const BEP_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/BEP_EV_Recruitment_Master.csv?v=${cacheVal}`;
+
+    function log(msg) {
+        const logBox = document.getElementById('debug-log');
+        logBox.style.display = 'block';
+        document.getElementById('log-content').innerHTML += `<div>${msg}</div>`;
+    }
 
     function processAndRender(data, tbodyId, type) {
         const tbody = document.getElementById(tbodyId);
+        tbody.innerHTML = '';
+
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">표시할 데이터가 없습니다.</td></tr>';
+            log(`${type}: 데이터가 비어있습니다.`);
             return;
         }
 
-        // 데이터 정렬
+        // 정렬 로직 (안정성 강화)
         data.sort((a, b) => {
-            const dateA = (type === 'bep' ? a['first_seen'] : a['first-seen']) || '0000-00-00';
-            const dateB = (type === 'bep' ? b['first_seen'] : b['first-seen']) || '0000-00-00';
+            const dateA = (type === 'bep' ? a['first_seen'] : a['first-seen']) || '0';
+            const dateB = (type === 'bep' ? b['first_seen'] : b['first-seen']) || '0';
             const compA = (a['completed_date'] && a['completed_date'].trim() !== "" && a['completed_date'] !== "-") ? 1 : 0;
             const compB = (b['completed_date'] && b['completed_date'].trim() !== "" && b['completed_date'] !== "-") ? 1 : 0;
-
             if (compA !== compB) return compA - compB;
             return new Date(dateB) - new Date(dateA);
         });
 
-        tbody.innerHTML = '';
         data.forEach(row => {
-            // 파이썬 생성 파일의 빈 값(NaN 등) 대응
-            const compDate = row['completed_date'] ? row['completed_date'].trim() : "";
+            const compDate = (row['completed_date'] || "").trim();
             const isCompleted = compDate !== "" && compDate !== "-";
             const tr = document.createElement('tr');
             if (isCompleted) tr.className = 'completed-row';
@@ -93,17 +101,16 @@
                     <td class="text-center">${row['경력'] || '-'}</td>
                     <td class="text-center">${row['first-seen'] || '-'}</td>
                     <td class="text-center">${compDate || '-'}</td>
-                    <td class="text-center"><a href="${row['URL'] || '#'}" target="_blank" class="btn-link-custom">공고보기</a></td>
+                    <td class="text-center"><a href="${row['URL'] || '#'}" target="_blank" class="btn-link-custom">보기</a></td>
                 `;
             } else {
-                const task = row['주요업무'] || "";
-                const taskSummary = task.length > 50 ? task.substring(0, 50) + '...' : task;
+                const taskSummary = (row['주요업무'] || "-").substring(0, 50) + '...';
                 tr.innerHTML = `
                     <td class="job-title">${row['공고명'] || '-'}</td>
-                    <td class="task-text">${taskSummary || '-'}</td>
+                    <td class="task-text">${taskSummary}</td>
                     <td class="text-center">${row['first_seen'] || '-'}</td>
                     <td class="text-center">${compDate || '-'}</td>
-                    <td class="text-center"><a href="${row['상세URL'] || '#'}" target="_blank" class="btn-link-custom">공고보기</a></td>
+                    <td class="text-center"><a href="${row['상세URL'] || '#'}" target="_blank" class="btn-link-custom">보기</a></td>
                 `;
             }
             tbody.appendChild(tr);
@@ -115,16 +122,14 @@
             download: true,
             header: true,
             skipEmptyLines: true,
-            // 파이썬 생성 파일 인코딩 문제(BOM) 해결을 위해 필드명 정리
-            transformHeader: function(h) { return h.trim().replace(/^\ufeff/, ""); },
+            transformHeader: h => h.trim().replace(/^\ufeff/, ""), // 파이썬 BOM 제거
             complete: function(results) {
-                console.log(`${type} 데이터:`, results.data); // 확인용 로그
+                log(`${type} 로드 성공: ${results.data.length}건 / 헤더: ${results.meta.fields.join(', ')}`);
                 processAndRender(results.data, tbodyId, type);
-                document.getElementById(updateId).innerText = `최종갱신: ${new Date().toLocaleTimeString()}`;
+                document.getElementById(updateId).innerText = `갱신: ${new Date().toLocaleTimeString()}`;
             },
             error: function(err) {
-                console.error(`${type} 로딩 에러:`, err);
-                document.getElementById(tbodyId).innerHTML = `<tr><td colspan="6" class="error-msg">파일을 불러올 수 없습니다. (URL 확인 필요)</td></tr>`;
+                log(`${type} 로드 에러: ${err}`);
             }
         });
     }
@@ -132,5 +137,6 @@
     loadData(SARAMIN_CSV_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
     loadData(BEP_CSV_URL, 'bep-table-body', 'bep', 'last-update-bep');
 </script>
+
 </body>
 </html>
