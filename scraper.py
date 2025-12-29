@@ -3,10 +3,24 @@ import pandas as pd
 import os
 import requests
 import traceback
+import sys
+try:
+    from google import genai
+    from google.genai import types
+    print("Gemini SDK 로드 성공")
+except ImportError:
+    print("오류: 'google-genai' 패키지가 설치되지 않았습니다.")
+    print("GitHub Actions 설정(yml)에서 pip install google-genai 단계를 확인하세요.")
+    sys.exit(1) # 라이브러리가 없으면 여기서 프로그램 강제 종료    
+# 이제 안전하게 사용 가능
+client = genai.Client(api_key=API_KEY)
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from io import BytesIO
 from PIL import Image
+
+
+
 
 # Selenium 관련
 from selenium import webdriver
