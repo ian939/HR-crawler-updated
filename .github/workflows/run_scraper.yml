@@ -27,6 +27,8 @@ jobs:
         pip install selenium webdriver-manager pandas
 
     - name: Run Scraper
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       run: python scraper.py
 
     - name: Commit and Push changes # 4) CSV 파일을 바로 깃허브에 업로드
