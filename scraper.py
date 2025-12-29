@@ -32,8 +32,19 @@ if not API_KEY:
     print("오류: GEMINI_API_KEY 환경 변수가 설정되지 않았습니다.")
     sys.exit(1)
 
+# API 키 설정 바로 아래에 넣어서 딱 한 번만 실행해 보세요
+try:
+    print("--- 사용 가능한 모델 목록 조회 시작 ---")
+    for m in client.models.list():
+        print(f"발견된 모델 ID: {m.name}")
+    print("--- 조회 완료 ---")
+except Exception as e:
+    print(f"모델 목록을 가져오지 못했습니다: {e}")
+
 # 클라이언트 초기화
 client = genai.Client(api_key=API_KEY)
+
+
 
 # ==========================================
 # 2. 보조 함수 정의
