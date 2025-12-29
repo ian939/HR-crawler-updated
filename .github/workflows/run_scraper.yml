@@ -24,6 +24,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          # 최신 버전으로 강제 업데이트하여 404 에러 방지
           pip install --upgrade google-generativeai pandas selenium webdriver-manager pillow requests
 
       - name: Run Scraper
