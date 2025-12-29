@@ -10,38 +10,42 @@
         body { background-color: #f8f9fa; font-family: 'Pretendard', sans-serif; }
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         
-        /* 상단 다운로드 섹션 */
-        .download-header { background: #e9ecef; padding: 15px; border-radius: 10px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-download-csv { background-color: #198754; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        .btn-download-csv:hover { background-color: #146c43; }
+        /* 다운로드 섹션 */
+        .top-banner { background: #e9ecef; padding: 15px 20px; border-radius: 10px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .btn-download-csv { background-color: #198754; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
 
-        /* 기업별 음영 색상 (형광 파스텔톤) */
-        .bg-evsis { background-color: rgba(255, 245, 157, 0.4) !important; } /* 노랑 형광 느낌 */
-        .bg-pluglink { background-color: rgba(187, 222, 251, 0.4) !important; } /* 파랑 형광 느낌 */
-        .bg-everon { background-color: rgba(200, 230, 201, 0.4) !important; } /* 초록 형광 느낌 */
-        .bg-default { background-color: rgba(245, 245, 245, 1) !important; }
+        /* 기업별 범례 (Legend) */
+        .legend-item { display: inline-flex; align-items: center; margin-right: 15px; font-size: 0.85rem; font-weight: 600; }
+        .color-box { width: 16px; height: 16px; border-radius: 4px; margin-right: 6px; border: 1px solid #ddd; }
 
-        .header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        
-        /* 완료된 공고 스타일 */
-        .completed-row { text-decoration: line-through !important; color: #adb5bd !important; background-color: #f2f2f2 !important; }
-        .completed-row td { color: #adb5bd !important; border-bottom-color: #eee; }
+        /* [핵심] 기업별 배경색 (우선순위 높임) */
+        .table > tbody > tr.bg-evsis { background-color: #fff9c4 !important; }    /* 진한 노랑 형광 */
+        .table > tbody > tr.bg-pluglink { background-color: #d1e9ff !important; } /* 진한 파랑 형광 */
+        .table > tbody > tr.bg-everon { background-color: #c8e6c9 !important; }   /* 진한 초록 형광 */
+
+        /* 완료 공고 스타일 */
+        .table > tbody > tr.completed-row { text-decoration: line-through !important; background-color: #f2f2f2 !important; color: #adb5bd !important; }
+        .completed-row td { color: #adb5bd !important; }
         .completed-row .btn-link-custom { background-color: #6c757d; opacity: 0.5; pointer-events: none; }
 
+        .header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 5px 15px; text-decoration: none; font-size: 0.8rem; font-weight: 600; }
         .job-title { font-weight: 700; color: #2c3e50; }
-        .task-text { font-size: 0.85rem; color: #444; max-width: 450px; line-height: 1.5; }
         .section-margin { margin-top: 3.5rem; }
     </style>
 </head>
 <body>
 
 <div class="container mt-5 mb-5">
-    <div class="download-header">
-        <h5 class="mb-0">📥 실시간 데이터 내보내기</h5>
+    <div class="top-banner">
         <div>
-            <button onclick="downloadCSV('saramin')" class="btn-download-csv">경쟁사 CSV 다운로드</button>
-            <button onclick="downloadCSV('bep')" class="btn-download-csv">BEP CSV 다운로드</button>
+            <span class="legend-item"><div class="color-box" style="background: #fff9c4;"></div> 이브이시스</span>
+            <span class="legend-item"><div class="color-box" style="background: #d1e9ff;"></div> 플러그링크</span>
+            <span class="legend-item"><div class="color-box" style="background: #c8e6c9;"></div> 에버온</span>
+        </div>
+        <div>
+            <button onclick="downloadCSV('saramin')" class="btn-download-csv">경쟁사 CSV</button>
+            <button onclick="downloadCSV('bep')" class="btn-download-csv">BEP CSV</button>
         </div>
     </div>
 
@@ -50,7 +54,7 @@
         <span class="badge bg-light text-dark border" id="last-update-saramin">확인 중...</span>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-bordered align-middle">
             <thead class="table-dark">
                 <tr><th>기업</th><th>공고명</th><th class="text-center">경력</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th></tr>
             </thead>
@@ -63,7 +67,7 @@
         <span class="badge bg-light text-dark border" id="last-update-bep">확인 중...</span>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-bordered align-middle">
             <thead class="table-dark">
                 <tr><th style="width: 25%;">공고명</th><th style="width: 45%;">주요업무</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th></tr>
             </thead>
@@ -78,18 +82,14 @@
 
     let rawData = { saramin: [], bep: [] };
 
-    // 기업별 색상 매핑 함수
-    function getCompanyClass(companyName) {
-        if (!companyName) return '';
-        if (companyName.includes('이브이시스')) return 'bg-evsis';
-        if (companyName.includes('플러그링크')) return 'bg-pluglink';
-        if (companyName.includes('에버온')) return 'bg-everon';
-        return 'bg-default';
-    }
-
-    function init() {
-        loadData(SARAMIN_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
-        loadData(BEP_URL, 'bep-table-body', 'bep', 'last-update-bep');
+    // [수정] 기업명 매칭 로직 강화
+    function getCompanyClass(name) {
+        if (!name) return '';
+        const cName = name.replace(/\s/g, ''); // 모든 공백 제거 후 비교
+        if (cName.includes('이브이시스')) return 'bg-evsis';
+        if (cName.includes('플러그링크')) return 'bg-pluglink';
+        if (cName.includes('에버온')) return 'bg-everon';
+        return '';
     }
 
     function loadData(url, tbodyId, type, updateId) {
@@ -99,7 +99,7 @@
             complete: function(results) {
                 rawData[type] = results.data;
                 renderTable(results.data, tbodyId, type);
-                document.getElementById(updateId).innerText = `최종갱신: ${new Date().toLocaleTimeString()}`;
+                document.getElementById(updateId).innerText = `갱신: ${new Date().toLocaleTimeString()}`;
             }
         });
     }
@@ -108,7 +108,7 @@
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
         
-        // 정렬: 완료된 항목 하단 배치 및 등록일 최신순
+        // 정렬
         data.sort((a, b) => {
             const dateA = (type === 'bep' ? a.first_seen : a['first-seen']) || '0';
             const dateB = (type === 'bep' ? b.first_seen : b['first-seen']) || '0';
@@ -118,36 +118,21 @@
         });
 
         data.forEach(row => {
+            const tr = document.createElement('tr');
             const compDate = (row.completed_date || "").trim();
             const isCompleted = compDate !== "" && compDate !== "-";
-            const tr = document.createElement('tr');
-            
-            // 상태 및 기업에 따른 클래스 부여
+
             if (isCompleted) {
-                tr.className = 'completed-row';
+                tr.classList.add('completed-row');
             } else if (type === 'saramin') {
-                tr.className = getCompanyClass(row['기업명']);
+                const companyClass = getCompanyClass(row['기업명']);
+                if (companyClass) tr.classList.add(companyClass);
             }
 
             if (type === 'saramin') {
-                tr.innerHTML = `
-                    <td class="job-title">${row['기업명'] || '-'}</td>
-                    <td class="task-text">${row['공고명'] || '-'}</td>
-                    <td class="text-center">${row['경력'] || '-'}</td>
-                    <td class="text-center">${row['first-seen'] || '-'}</td>
-                    <td class="text-center">${compDate || '-'}</td>
-                    <td class="text-center"><a href="${row.URL}" target="_blank" class="btn-link-custom">공고보기</a></td>
-                `;
+                tr.innerHTML = `<td class="job-title">${row['기업명']}</td><td>${row['공고명']}</td><td class="text-center">${row['경력']}</td><td class="text-center">${row['first-seen']}</td><td class="text-center">${compDate || '-'}</td><td class="text-center"><a href="${row.URL}" target="_blank" class="btn-link-custom">보기</a></td>`;
             } else {
-                const task = row['주요업무'] || "";
-                const taskSummary = task.length > 55 ? task.substring(0, 55) + '...' : task;
-                tr.innerHTML = `
-                    <td class="job-title">${row['공고명'] || '-'}</td>
-                    <td class="task-text" title="${task}">${taskSummary}</td>
-                    <td class="text-center">${row.first_seen || '-'}</td>
-                    <td class="text-center">${compDate || '-'}</td>
-                    <td class="text-center"><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">공고보기</a></td>
-                `;
+                tr.innerHTML = `<td class="job-title">${row['공고명']}</td><td style="font-size:0.85rem;">${(row['주요업무']||'').substring(0,55)}...</td><td class="text-center">${row.first_seen}</td><td class="text-center">${compDate || '-'}</td><td class="text-center"><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">보기</a></td>`;
             }
             tbody.appendChild(tr);
         });
@@ -155,17 +140,17 @@
 
     function downloadCSV(type) {
         const data = rawData[type];
-        if (!data || data.length === 0) return alert("데이터가 없습니다.");
+        if (!data || data.length === 0) return;
         const csv = Papa.unparse(data);
         const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `${type}_채용현황_${new Date().toISOString().slice(0,10)}.csv`);
+        link.href = URL.createObjectURL(blob);
+        link.download = `${type}_data.csv`;
         link.click();
     }
 
-    init();
+    loadData(SARAMIN_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
+    loadData(BEP_URL, 'bep-table-body', 'bep', 'last-update-bep');
 </script>
 </body>
 </html>
