@@ -13,50 +13,64 @@ import google.generativeai as genai
 from io import BytesIO
 from PIL import Image
 
-# Gemini API 설정
+# 1. Gemini 설정 최적화
+# 모델명을 'gemini-1.5-flash' 대신 'gemini-1.5-flash-latest'로 시도해보세요.
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-def clean_saramin_url(url):
-    """URL에서 rec_idx만 남기고 나머지 추적 파라미터 제거"""
-    u = urlparse(url)
-    query = parse_qs(u.query)
-    if 'rec_idx' in query:
-        new_query = {'rec_idx': query['rec_idx']}
-        return urlunparse((u.scheme, u.netloc, u.path, u.params, urlencode(new_query, doseq=True), u.fragment))
-    return url
+model = genai.GenerativeModel('gemini-1.5-flash') # 또는 'models/gemini-1.5-flash'
 
 def get_ai_summary(text, image_urls):
-    """Gemini를 사용하여 텍스트와 이미지를 분석/요약"""
     if not text.strip() and not image_urls.strip():
         return "수집된 내용 없음"
     
     try:
-        # 프롬프트: 요약 가이드라인 설정
+        # 프롬프트 강화
         prompt = (
-            "당신은 채용 전문 헤드헌터입니다. 다음 공고를 분석하여 구직자가 한눈에 보기 쉽게 요약해주세요.\n"
-            "1. 주요업무, 2. 자격요건 순서로 요약해.\n"
-            "이미지에 글자가 있다면 그 내용도 반드시 포함해줘. 한국어로 5줄 내외로 작성해.\n\n"
-            f"텍스트 내용: {text[:2000]}"
+            "당신은 채용 전문 요약 봇입니다. 아래 내용을 분석해 구직자에게 필요한 핵심만 알려주세요.\n"
+            "형식: [주요업무 / 자격요건 / 혜택]을 포함해 5줄 내외 요약.\n"
+            "이미지에 텍스트가 있다면 포함해서 설명해줘.\n\n"
+            f"텍스트: {text[:1500]}"
         )
+        
         contents = [prompt]
 
-        # 이미지 처리 (보안 헤더 추가)
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        valid_imgs = [url for url in image_urls.split("|") if "http" in url][:2] # 비용 및 성능 위해 2개로 제한
+        # 이미지 다운로드 및 검증 로직 강화
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        valid_imgs = [url.strip() for url in image_urls.split("|") if "http" in url][:2]
         
         for img_url in valid_imgs:
             try:
                 res = requests.get(img_url, headers=headers, timeout=10)
                 if res.status_code == 200:
                     img = Image.open(BytesIO(res.content))
+                    # Gemini가 읽기 편하도록 RGB로 변환 및 리사이즈(선택)
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
                     contents.append(img)
-            except: continue
+            except:
+                continue
 
+        # AI 호출 (안전 장치 추가)
         response = model.generate_content(contents)
-        return response.text.strip()
+        
+        if response and response.text:
+            return response.text.strip()
+        return "요약 내용 생성 불가 (응답 없음)"
+        
     except Exception as e:
-        return f"요약 생성 실패: {str(e)[:50]}"
+        print(f"Gemini API 상세 에러: {str(e)}")
+        return f"요약 에러: {str(e)[:30]}"
+
+# --- 이하 크롤링 로직은 이전과 동일하되 URL 파라미터 보존 필수 ---
+def clean_saramin_url(url):
+    u = urlparse(url)
+    query = parse_qs(u.query)
+    if 'rec_idx' in query:
+        # 공고 번호인 rec_idx는 반드시 포함해야 함
+        new_query = {'rec_idx': query['rec_idx'][0]}
+        return urlunparse((u.scheme, u.netloc, u.path, '', urlencode(new_query), ''))
+    return url
+
+# ... (나머지 scrape_saramin 함수 본문은 이전 코드 유지)
 
 def scrape_saramin():
     # 1. 기업명 리스트 및 파일 설정
