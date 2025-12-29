@@ -24,7 +24,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install selenium webdriver-manager pandas
+        pip install -r requirements.txt  # <--- 이 줄이 반드시 있어야 합니다.
 
     - name: Run Scraper
       env:
