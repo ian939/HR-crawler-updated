@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import requests
 from datetime import datetime
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -16,45 +17,55 @@ from PIL import Image
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 model = genai.GenerativeModel('gemini-1.5-flash')
 
+def clean_saramin_url(url):
+    """URL에서 rec_idx만 남기고 나머지 추적 파라미터 제거"""
+    u = urlparse(url)
+    query = parse_qs(u.query)
+    if 'rec_idx' in query:
+        new_query = {'rec_idx': query['rec_idx']}
+        return urlunparse((u.scheme, u.netloc, u.path, u.params, urlencode(new_query, doseq=True), u.fragment))
+    return url
+
 def get_ai_summary(text, image_urls):
-    """Gemini를 사용하여 텍스트와 이미지를 요약함"""
+    """Gemini를 사용하여 텍스트와 이미지를 분석/요약"""
     if not text.strip() and not image_urls.strip():
         return "수집된 내용 없음"
     
     try:
-        prompt = f"다음 채용 공고를 분석해서 '주요업무, 자격요건'을 중심으로 5줄 이내로 간결하게 요약해줘. 한국어로 작성해.\n\n텍스트 내용: {text[:2000]}"
+        # 프롬프트: 요약 가이드라인 설정
+        prompt = (
+            "당신은 채용 전문 헤드헌터입니다. 다음 공고를 분석하여 구직자가 한눈에 보기 쉽게 요약해주세요.\n"
+            "1. 주요업무, 2. 자격요건" 순서로 요약해.\n"
+            "이미지에 글자가 있다면 그 내용도 반드시 포함해줘. 한국어로 5줄 내외로 작성해.\n\n"
+            f"텍스트 내용: {text[:2000]}"
+        )
         contents = [prompt]
 
-        # 이미지 처리 (헤더 추가하여 차단 방지)
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        valid_imgs = [url for url in image_urls.split("|") if "http" in url][:3]
+        # 이미지 처리 (보안 헤더 추가)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        valid_imgs = [url for url in image_urls.split("|") if "http" in url][:2] # 비용 및 성능 위해 2개로 제한
         
         for img_url in valid_imgs:
             try:
-                img_res = requests.get(img_url, headers=headers, timeout=10)
-                if img_res.status_code == 200:
-                    img = Image.open(BytesIO(img_res.content))
+                res = requests.get(img_url, headers=headers, timeout=10)
+                if res.status_code == 200:
+                    img = Image.open(BytesIO(res.content))
                     contents.append(img)
-            except Exception as e:
-                print(f"이미지 다운로드 실패 ({img_url}): {e}")
-                continue
+            except: continue
 
         response = model.generate_content(contents)
         return response.text.strip()
     except Exception as e:
-        print(f"AI 요약 중 오류 발생: {e}")
-        return f"요약 실패 (오류: {str(e)[:50]})"
+        return f"요약 생성 실패: {str(e)[:50]}"
 
 def scrape_saramin():
+    # 1. 기업명 리스트 및 파일 설정
     companies = ["대영채비", "이브이시스", "플러그링크", "볼트업", "차지비", "에버온"]
     csv_file = "saramin_results.csv"
     today = datetime.now().strftime('%Y-%m-%d')
     
-    # 1. 기존 데이터 로드 및 전처리
     if os.path.exists(csv_file):
         df_old = pd.read_csv(csv_file)
-        # URL을 기준으로 중복 제거 (데이터 무결성 확보)
-        df_old = df_old.drop_duplicates(subset=['URL'], keep='first')
     else:
         df_old = pd.DataFrame(columns=["기업명", "공고명", "요약내용", "이미지링크", "URL", "first-seen", "completed_date"])
 
@@ -65,44 +76,44 @@ def scrape_saramin():
     chrome_options.add_argument("user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    
-    scraped_urls = [] # 이번 회차에 발견된 URL들
+    scraped_urls = []
 
     try:
         for target_company in companies:
-            print(f">>> '{target_company}' 검색 중...")
-            driver.get(f"https://www.saramin.co.kr/zf_user/search/recruit?searchword={target_company}&recruitSort=relation")
+            print(f">>> '{target_company}' 검색 시작...")
+            # 검색 정확도를 높이기 위해 '관계도순'이 아닌 '최근등록순' 또는 기본 검색 사용
+            driver.get(f"https://www.saramin.co.kr/zf_user/search/recruit?searchword={target_company}")
             time.sleep(5)
 
-            job_elements = driver.find_elements(By.CSS_SELECTOR, ".item_recruit")
-            for job in job_elements:
+            items = driver.find_elements(By.CSS_SELECTOR, ".item_recruit")
+            for item in items:
                 try:
-                    # 정확한 기업명 매칭 확인
-                    corp_name = job.find_element(By.CSS_SELECTOR, ".corp_name a").text.strip()
-                    if target_company not in corp_name: continue
+                    # [수정] 기업명 매칭 로직 강화 (완전 일치 또는 명확한 포함)
+                    corp_name = item.find_element(By.CSS_SELECTOR, ".corp_name a").text.strip()
+                    if target_company not in corp_name: 
+                        continue
                     
-                    link = job.find_element(By.CSS_SELECTOR, ".job_tit a").get_attribute("href").split('?')[0] # 파라미터 제거하여 고유 URL 확보
+                    raw_link = item.find_element(By.CSS_SELECTOR, ".job_tit a").get_attribute("href")
+                    link = clean_saramin_url(raw_link) # 공고 고유 ID 포함한 URL 추출
                     scraped_urls.append(link)
 
-                    # 이미 수집되어 있고 요약까지 완료된 건이면 건너뜀
+                    # 중복 체크: 이미 요약까지 완료된 건이면 패스
                     if link in df_old['URL'].values:
-                        existing_summary = df_old.loc[df_old['URL'] == link, '요약내용'].values[0]
-                        if pd.notna(existing_summary) and "실패" not in str(existing_summary):
+                        existing = df_old[df_old['URL'] == link].iloc[0]
+                        if pd.notna(existing['요약내용']) and "실패" not in str(existing['요약내용']):
                             continue
 
-                    title = job.find_element(By.CSS_SELECTOR, ".job_tit a").text.strip()
+                    title = item.find_element(By.CSS_SELECTOR, ".job_tit a").text.strip()
                     
-                    # 상세 페이지 이동
-                    driver.execute_script("window.open('');")
+                    # 상세 페이지로 이동
+                    driver.execute_script(f"window.open('{link}');")
                     driver.switch_to.window(driver.window_handles[1])
-                    driver.get(link)
-                    time.sleep(3)
+                    time.sleep(4)
 
-                    # 내용 및 이미지 추출
                     content_text = ""
                     image_links = []
                     
-                    # iframe 우선 확인
+                    # 상세 내용 수집 (iframe 및 일반 컨텐츠)
                     if len(driver.find_elements(By.ID, "iframe_content_0")) > 0:
                         driver.switch_to.frame("iframe_content_0")
                         body = driver.find_element(By.TAG_NAME, "body")
@@ -111,20 +122,21 @@ def scrape_saramin():
                         driver.switch_to.default_content()
                     else:
                         try:
-                            detail = driver.find_element(By.CSS_SELECTOR, ".user_content")
-                            content_text = detail.text.strip()
-                            image_links = [img.get_attribute("src") for img in detail.find_elements(By.TAG_NAME, "img") if img.get_attribute("src")]
+                            content_area = driver.find_element(By.CSS_SELECTOR, ".user_content, .job_detail_content")
+                            content_text = content_area.text.strip()
+                            image_links = [img.get_attribute("src") for img in content_area.find_elements(By.TAG_NAME, "img") if img.get_attribute("src")]
                         except: pass
 
                     img_str = "|".join(image_links)
                     
-                    # AI 요약 수행
-                    print(f"   - 신규 공고 요약 중: {title[:20]}...")
+                    # Gemini 요약 수행
+                    print(f"   - [신규] {title[:20]}")
                     summary = get_ai_summary(content_text, img_str)
 
-                    # 기존 데이터에 추가 또는 업데이트
+                    # 데이터 합치기
                     if link in df_old['URL'].values:
                         df_old.loc[df_old['URL'] == link, '요약내용'] = summary
+                        df_old.loc[df_old['URL'] == link, 'completed_date'] = None # 재활성화 대응
                     else:
                         new_row = pd.DataFrame([{
                             "기업명": target_company,
@@ -139,20 +151,20 @@ def scrape_saramin():
                     
                     driver.close()
                     driver.switch_to.window(driver.window_handles[0])
-                except:
+                except Exception as e:
+                    print(f"오류: {e}")
                     if len(driver.window_handles) > 1:
                         driver.close()
                         driver.switch_to.window(driver.window_handles[0])
-                    continue
     finally:
         driver.quit()
 
-    # 2. 종료된 공고 처리 (지난번엔 있었으나 이번 검색에 없는 활성 공고)
+    # 마감 공고 처리
     df_old.loc[(~df_old['URL'].isin(scraped_urls)) & (df_old['completed_date'].isna()), 'completed_date'] = today
-
-    # 3. 최종 저장 (한 번 더 중복 제거)
+    
+    # 저장 전 최종 중복 제거 및 저장
     df_old.drop_duplicates(subset=['URL'], keep='last').to_csv(csv_file, index=False, encoding="utf-8-sig")
-    print(f">>> 모든 작업 완료. 현재 총 {len(df_old)}개 공고 관리 중.")
+    print(f"\n✅ 완료: 현재 총 {len(df_old)}개의 공고가 관리되고 있습니다.")
 
 if __name__ == "__main__":
     scrape_saramin()
