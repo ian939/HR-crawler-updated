@@ -2,7 +2,6 @@ import time
 import pandas as pd
 import os
 import requests
-import traceback
 import sys
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
@@ -28,20 +27,21 @@ def scrape_saramin():
     csv_file = "saramin_results.csv"
     today = datetime.now().strftime('%Y-%m-%d')
     
-    # 1. 기존 데이터 로드 및 컬럼 구조 설정
-    columns = ["기업명", "공고명", "공고문 컬럼", "이미지 링크", "URL", "first-seen", "completed_date"]
+    # 1. 컬럼 구조 설정 ('경력' 컬럼을 3번째 자리에 추가)
+    columns = ["기업명", "공고명", "경력", "공고문 컬럼", "이미지 링크", "URL", "first-seen", "completed_date"]
     
+    # 기존 데이터 로드 및 구조 맞추기
     if os.path.exists(csv_file):
         df_old = pd.read_csv(csv_file)
-        # 기존 파일에 '공고문 컬럼'이 없거나 '요약내용'이 있다면 이름 변경 또는 재설정
-        if '요약내용' in df_old.columns:
-            df_old.rename(columns={'요약내용': '공고문 컬럼'}, inplace=True)
-        if '이미지링크' in df_old.columns:
-            df_old.rename(columns={'이미지링크': '이미지 링크'}, inplace=True)
+        # 컬럼 순서나 이름이 다를 경우를 대비해 재설정
+        for col in columns:
+            if col not in df_old.columns:
+                df_old[col] = ""
+        df_old = df_old[columns]
     else:
         df_old = pd.DataFrame(columns=columns)
 
-    # 2. 브라우저 설정 (Headless 모드)
+    # 2. 브라우저 설정
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -62,7 +62,7 @@ def scrape_saramin():
 
             for item in items:
                 try:
-                    # 기업명 매칭
+                    # 기업명 매칭 확인
                     corp_name = item.find_element(By.CSS_SELECTOR, ".corp_name").text.replace(" ", "")
                     if target_company not in corp_name:
                         continue
@@ -71,16 +71,24 @@ def scrape_saramin():
                     link = clean_saramin_url(raw_link)
                     scraped_urls.append(link)
 
-                    # 이미 상세 수집된 공고라면 스킵
+                    # 검색 결과 페이지에서 바로 경력 정보 추출
+                    try:
+                        # .job_condition 안의 두 번째 span이 주로 경력 정보입니다.
+                        condition_spans = item.find_elements(By.CSS_SELECTOR, ".job_condition span")
+                        experience = condition_spans[1].text if len(condition_spans) > 1 else "정보없음"
+                    except:
+                        experience = "정보없음"
+
+                    # 이미 수집된 URL이고 데이터가 차 있다면 스킵 (업데이트가 필요한 경우 주석 처리)
                     if link in df_old['URL'].values:
                         idx = df_old[df_old['URL'] == link].index[0]
-                        if pd.notna(df_old.at[idx, '공고문 컬럼']) and len(str(df_old.at[idx, '공고문 컬럼'])) > 10:
+                        if pd.notna(df_old.at[idx, '공고문 컬럼']) and len(str(df_old.at[idx, '공고문 컬럼'])) > 20:
                             continue
 
                     title = item.find_element(By.CSS_SELECTOR, ".job_tit a").text.strip()
-                    print(f"    - 데이터 수집 중: {title[:25]}...")
+                    print(f"    - 데이터 수집 중: {title[:20]}... ({experience})")
 
-                    # 상세페이지 이동
+                    # 상세페이지 이동 (텍스트 및 이미지 추출용)
                     driver.execute_script(f"window.open('{link}');")
                     driver.switch_to.window(driver.window_handles[1])
                     time.sleep(5)
@@ -88,33 +96,31 @@ def scrape_saramin():
                     raw_text = ""
                     image_links = []
                     
-                    # 공고문 본문(Iframe) 접근
+                    # 상세 공고문 내용 추출 (Iframe 우선)
                     if len(driver.find_elements(By.ID, "iframe_content_0")) > 0:
                         driver.switch_to.frame("iframe_content_0")
                         body_element = driver.find_element(By.TAG_NAME, "body")
-                        
-                        # 공고문 텍스트 추출
                         raw_text = body_element.text.strip()
-                        # 이미지 링크 추출
                         imgs = body_element.find_elements(By.TAG_NAME, "img")
                         image_links = [i.get_attribute("src") for i in imgs if i.get_attribute("src")]
-                        
                         driver.switch_to.default_content()
                     else:
-                        # Iframe이 없는 경우 일반 body에서 추출
-                        raw_text = driver.find_element(By.TAG_NAME, "body").text.strip()[:3000]
+                        # Iframe이 없는 경우
+                        raw_text = driver.find_element(By.TAG_NAME, "body").text.strip()[:5000]
 
-                    # 데이터 저장/업데이트
                     image_links_str = "|".join(image_links)
                     
+                    # 데이터 저장
                     if link in df_old['URL'].values:
-                        target_idx = df_old[df_old['URL'] == link].index[0]
-                        df_old.at[target_idx, '공고문 컬럼'] = raw_text
-                        df_old.at[target_idx, '이미지 링크'] = image_links_str
+                        t_idx = df_old[df_old['URL'] == link].index[0]
+                        df_old.at[t_idx, '경력'] = experience
+                        df_old.at[t_idx, '공고문 컬럼'] = raw_text
+                        df_old.at[t_idx, '이미지 링크'] = image_links_str
                     else:
                         new_row = pd.DataFrame([{
                             "기업명": target_company, 
                             "공고명": title, 
+                            "경력": experience,
                             "공고문 컬럼": raw_text, 
                             "이미지 링크": image_links_str, 
                             "URL": link, 
@@ -126,7 +132,7 @@ def scrape_saramin():
                     driver.close()
                     driver.switch_to.window(driver.window_handles[0])
                 except Exception as e:
-                    print(f"      오류 발생: {e}")
+                    print(f"      세부 오류: {e}")
                     if len(driver.window_handles) > 1:
                         driver.close()
                         driver.switch_to.window(driver.window_handles[0])
@@ -134,12 +140,14 @@ def scrape_saramin():
     finally:
         driver.quit()
 
-    # 3. 마감 처리 및 저장
+    # 3. 마감 처리 및 CSV 저장
     mask = (~df_old['URL'].isin(scraped_urls)) & (df_old['completed_date'].isna() | (df_old['completed_date'] == ""))
     df_old.loc[mask, 'completed_date'] = today
     
+    # 컬럼 순서 최종 고정 후 저장
+    df_old = df_old[columns]
     df_old.to_csv(csv_file, index=False, encoding="utf-8-sig")
-    print(f"\n[작업 완료] {len(scraped_urls)}개의 공고 데이터를 수집했습니다.")
+    print(f"\n[작업 완료] '경력' 정보가 포함된 {len(scraped_urls)}개의 공고 데이터를 저장했습니다.")
 
 if __name__ == "__main__":
     scrape_saramin()
