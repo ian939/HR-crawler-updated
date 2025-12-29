@@ -10,42 +10,25 @@
         body { background-color: #f8f9fa; font-family: 'Pretendard', sans-serif; }
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         
-        /* 다운로드 섹션 */
-        .top-banner { background: #e9ecef; padding: 15px 20px; border-radius: 10px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .btn-download-csv { background-color: #198754; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
-
-        /* 기업별 범례 (Legend) */
-        .legend-item { display: inline-flex; align-items: center; margin-right: 15px; font-size: 0.85rem; font-weight: 600; }
-        .color-box { width: 16px; height: 16px; border-radius: 4px; margin-right: 6px; border: 1px solid #ddd; }
-
-        /* [핵심] 기업별 배경색 (우선순위 높임) */
-        .table > tbody > tr.bg-evsis { background-color: #fff9c4 !important; }    /* 진한 노랑 형광 */
-        .table > tbody > tr.bg-pluglink { background-color: #d1e9ff !important; } /* 진한 파랑 형광 */
-        .table > tbody > tr.bg-everon { background-color: #c8e6c9 !important; }   /* 진한 초록 형광 */
-
-        /* 완료 공고 스타일 */
-        .table > tbody > tr.completed-row { text-decoration: line-through !important; background-color: #f2f2f2 !important; color: #adb5bd !important; }
-        .completed-row td { color: #adb5bd !important; }
-        .completed-row .btn-link-custom { background-color: #6c757d; opacity: 0.5; pointer-events: none; }
+        /* 다운로드 버튼 스타일 */
+        .download-header { background: #e9ecef; padding: 15px; border-radius: 10px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-download-csv { background-color: #198754; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-download-csv:hover { background-color: #146c43; }
 
         .header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-        .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 5px 15px; text-decoration: none; font-size: 0.8rem; font-weight: 600; }
-        .job-title { font-weight: 700; color: #2c3e50; }
-        .section-margin { margin-top: 3.5rem; }
+        .completed-row { text-decoration: line-through; color: #adb5bd !important; background-color: #fcfcfc; }
+        .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 5px 15px; text-decoration: none; font-size: 0.8rem; }
+        .section-margin { margin-top: 3rem; }
     </style>
 </head>
 <body>
 
 <div class="container mt-5 mb-5">
-    <div class="top-banner">
+    <div class="download-header">
+        <h5 class="mb-0">📥 실시간 데이터 내보내기</h5>
         <div>
-            <span class="legend-item"><div class="color-box" style="background: #fff9c4;"></div> 이브이시스</span>
-            <span class="legend-item"><div class="color-box" style="background: #d1e9ff;"></div> 플러그링크</span>
-            <span class="legend-item"><div class="color-box" style="background: #c8e6c9;"></div> 에버온</span>
-        </div>
-        <div>
-            <button onclick="downloadCSV('saramin')" class="btn-download-csv">경쟁사 CSV</button>
-            <button onclick="downloadCSV('bep')" class="btn-download-csv">BEP CSV</button>
+            <button onclick="downloadCSV('saramin')" class="btn-download-csv">경쟁사 데이터 다운로드</button>
+            <button onclick="downloadCSV('bep')" class="btn-download-csv">BEP 데이터 다운로드</button>
         </div>
     </div>
 
@@ -54,9 +37,9 @@
         <span class="badge bg-light text-dark border" id="last-update-saramin">확인 중...</span>
     </div>
     <div class="table-responsive">
-        <table class="table table-bordered align-middle">
+        <table class="table table-hover align-middle" id="saramin-table">
             <thead class="table-dark">
-                <tr><th>기업</th><th>공고명</th><th class="text-center">경력</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th></tr>
+                <tr><th>기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
             </thead>
             <tbody id="saramin-table-body"></tbody>
         </table>
@@ -67,9 +50,9 @@
         <span class="badge bg-light text-dark border" id="last-update-bep">확인 중...</span>
     </div>
     <div class="table-responsive">
-        <table class="table table-bordered align-middle">
+        <table class="table table-hover align-middle" id="bep-table">
             <thead class="table-dark">
-                <tr><th style="width: 25%;">공고명</th><th style="width: 45%;">주요업무</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th></tr>
+                <tr><th>공고명</th><th>주요업무</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
             </thead>
             <tbody id="bep-table-body"></tbody>
         </table>
@@ -82,14 +65,10 @@
 
     let rawData = { saramin: [], bep: [] };
 
-    // [수정] 기업명 매칭 로직 강화
-    function getCompanyClass(name) {
-        if (!name) return '';
-        const cName = name.replace(/\s/g, ''); // 모든 공백 제거 후 비교
-        if (cName.includes('이브이시스')) return 'bg-evsis';
-        if (cName.includes('플러그링크')) return 'bg-pluglink';
-        if (cName.includes('에버온')) return 'bg-everon';
-        return '';
+    // 1. 데이터 로드 및 저장
+    function init() {
+        loadData(SARAMIN_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
+        loadData(BEP_URL, 'bep-table-body', 'bep', 'last-update-bep');
     }
 
     function loadData(url, tbodyId, type, updateId) {
@@ -99,58 +78,61 @@
             complete: function(results) {
                 rawData[type] = results.data;
                 renderTable(results.data, tbodyId, type);
-                document.getElementById(updateId).innerText = `갱신: ${new Date().toLocaleTimeString()}`;
+                document.getElementById(updateId).innerText = `최종갱신: ${new Date().toLocaleTimeString()}`;
             }
         });
     }
 
+    // 2. 테이블 렌더링
     function renderTable(data, tbodyId, type) {
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
         
-        // 정렬
+        // 정렬: 진행중 -> 최신순
         data.sort((a, b) => {
             const dateA = (type === 'bep' ? a.first_seen : a['first-seen']) || '0';
             const dateB = (type === 'bep' ? b.first_seen : b['first-seen']) || '0';
-            const compA = (a.completed_date && a.completed_date.trim() !== "" && a.completed_date !== "-") ? 1 : 0;
-            const compB = (b.completed_date && b.completed_date.trim() !== "" && b.completed_date !== "-") ? 1 : 0;
+            const compA = a.completed_date ? 1 : 0;
+            const compB = b.completed_date ? 1 : 0;
             return (compA - compB) || (new Date(dateB) - new Date(dateA));
         });
 
         data.forEach(row => {
+            const isCompleted = row.completed_date && row.completed_date.trim() !== "" && row.completed_date !== "-";
             const tr = document.createElement('tr');
-            const compDate = (row.completed_date || "").trim();
-            const isCompleted = compDate !== "" && compDate !== "-";
-
-            if (isCompleted) {
-                tr.classList.add('completed-row');
-            } else if (type === 'saramin') {
-                const companyClass = getCompanyClass(row['기업명']);
-                if (companyClass) tr.classList.add(companyClass);
-            }
-
+            if (isCompleted) tr.className = 'completed-row';
+            
             if (type === 'saramin') {
-                tr.innerHTML = `<td class="job-title">${row['기업명']}</td><td>${row['공고명']}</td><td class="text-center">${row['경력']}</td><td class="text-center">${row['first-seen']}</td><td class="text-center">${compDate || '-'}</td><td class="text-center"><a href="${row.URL}" target="_blank" class="btn-link-custom">보기</a></td>`;
+                tr.innerHTML = `<td>${row['기업명']}</td><td>${row['공고명']}</td><td>${row['경력']}</td><td>${row['first-seen']}</td><td>${row.completed_date || '-'}</td><td><a href="${row.URL}" target="_blank" class="btn-link-custom">보기</a></td>`;
             } else {
-                tr.innerHTML = `<td class="job-title">${row['공고명']}</td><td style="font-size:0.85rem;">${(row['주요업무']||'').substring(0,55)}...</td><td class="text-center">${row.first_seen}</td><td class="text-center">${compDate || '-'}</td><td class="text-center"><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">보기</a></td>`;
+                tr.innerHTML = `<td>${row['공고명']}</td><td>${(row['주요업무'] || '').substring(0,50)}...</td><td>${row.first_seen}</td><td>${row.completed_date || '-'}</td><td><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">보기</a></td>`;
             }
             tbody.appendChild(tr);
         });
     }
 
+    // 3. CSV 다운로드 기능 (핵심!)
     function downloadCSV(type) {
         const data = rawData[type];
-        if (!data || data.length === 0) return;
+        if (!data || data.length === 0) return alert("데이터가 없습니다.");
+
+        // PapaParse를 사용하여 JSON을 CSV 문자열로 변환
         const csv = Papa.unparse(data);
+        
+        // 한글 깨짐 방지를 위한 BOM 추가
         const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `${type}_data.csv`;
+        const url = URL.createObjectURL(blob);
+        
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${type}_recruit_data_${new Date().toLocaleDateString()}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
     }
 
-    loadData(SARAMIN_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
-    loadData(BEP_URL, 'bep-table-body', 'bep', 'last-update-bep');
+    init();
 </script>
 </body>
 </html>
