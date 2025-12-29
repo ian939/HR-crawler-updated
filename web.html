@@ -3,38 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BEP & 경쟁사 채용 현황 (자동 정렬)</title>
+    <title>BEP & 경쟁사 채용 현황 (Live)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { background-color: #f8f9fa; font-family: 'Pretendard', sans-serif; }
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 2px solid #eee; padding-bottom: 1rem; }
-        
-        /* 완료된 항목 스타일 */
-        .completed-row { 
-            text-decoration: line-through; 
-            color: #adb5bd !important; 
-            background-color: #fdfdfd; 
-        }
-        .completed-row .btn-link-custom { 
-            background-color: #6c757d; 
-            pointer-events: none; /* 클릭 방지 (선택 사항) */
-            opacity: 0.6;
-        }
-        .completed-row td { color: #adb5bd !important; }
-
-        .btn-link-custom { 
-            background-color: #0d6efd; color: white; border-radius: 20px; padding: 6px 18px; 
-            text-decoration: none; font-size: 0.85rem; font-weight: 600; display: inline-block; 
-            transition: all 0.2s ease; border: none;
-        }
-        .btn-link-custom:hover { background-color: #0a58ca; color: white; }
+        .completed-row { text-decoration: line-through; color: #adb5bd !important; background-color: #fafafa; }
+        .completed-row .btn-link-custom { background-color: #6c757d; opacity: 0.6; pointer-events: none; }
+        .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 6px 18px; text-decoration: none; font-size: 0.85rem; font-weight: 600; display: inline-block; border: none; }
         .table thead { background-color: #212529; color: white; }
         .job-title { font-weight: 700; color: #2c3e50; }
         .task-text { font-size: 0.85rem; color: #555; max-width: 400px; line-height: 1.5; }
-        .date-col { font-size: 0.9rem; }
         .section-margin { margin-top: 4rem; }
+        .error-msg { color: #dc3545; font-size: 0.8rem; }
     </style>
 </head>
 <body>
@@ -48,12 +31,7 @@
         <table class="table table-hover align-middle">
             <thead class="table-dark">
                 <tr>
-                    <th>기업</th>
-                    <th>공고명</th>
-                    <th class="text-center">경력</th>
-                    <th class="text-center">등록일</th>
-                    <th class="text-center">완료일</th>
-                    <th class="text-center">상세보기</th>
+                    <th>기업</th><th>공고명</th><th class="text-center">경력</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th>
                 </tr>
             </thead>
             <tbody id="saramin-table-body"></tbody>
@@ -68,11 +46,7 @@
         <table class="table table-hover align-middle">
             <thead class="table-dark">
                 <tr>
-                    <th style="width: 25%;">공고명</th>
-                    <th style="width: 45%;">주요업무</th>
-                    <th class="text-center">등록일</th>
-                    <th class="text-center">완료일</th>
-                    <th class="text-center">상세보기</th>
+                    <th style="width: 25%;">공고명</th><th style="width: 45%;">주요업무</th><th class="text-center">등록일</th><th class="text-center">완료일</th><th class="text-center">상세보기</th>
                 </tr>
             </thead>
             <tbody id="bep-table-body"></tbody>
@@ -81,74 +55,82 @@
 </div>
 
 <script>
-    // GitHub Raw URL (본인의 경로로 수정)
-    const SARAMIN_CSV_URL = 'https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/saramin_results.csv';
-    const BEP_CSV_URL = 'https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/BEP_EV_Recruitment_Master.csv';
+    // 1. 캐시 방지를 위해 URL 뒤에 타임스탬프 추가
+    const t = new Date().getTime();
+    const SARAMIN_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/saramin_results.csv?v=${t}`;
+    const BEP_CSV_URL = `https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/BEP_EV_Recruitment_Master.csv?v=${t}`;
 
-    // 정렬 및 렌더링 함수
     function processAndRender(data, tbodyId, type) {
         const tbody = document.getElementById(tbodyId);
-        tbody.innerHTML = '';
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">표시할 데이터가 없습니다.</td></tr>';
+            return;
+        }
 
-        // 1. 데이터 정렬 로직
+        // 데이터 정렬
         data.sort((a, b) => {
-            const dateA = type === 'bep' ? a.first_seen : a['first-seen'];
-            const dateB = type === 'bep' ? b.first_seen : b['first-seen'];
-            const compA = a.completed_date ? 1 : 0;
-            const compB = b.completed_date ? 1 : 0;
+            const dateA = (type === 'bep' ? a['first_seen'] : a['first-seen']) || '0000-00-00';
+            const dateB = (type === 'bep' ? b['first_seen'] : b['first-seen']) || '0000-00-00';
+            const compA = (a['completed_date'] && a['completed_date'].trim() !== "" && a['completed_date'] !== "-") ? 1 : 0;
+            const compB = (b['completed_date'] && b['completed_date'].trim() !== "" && b['completed_date'] !== "-") ? 1 : 0;
 
-            // 완료된 건(1)을 미완료(0)보다 뒤로 보냄
             if (compA !== compB) return compA - compB;
-            
-            // 동일 상태 내에서는 최신 날짜순 정렬
             return new Date(dateB) - new Date(dateA);
         });
 
-        // 2. 테이블 생성
+        tbody.innerHTML = '';
         data.forEach(row => {
-            const isCompleted = row.completed_date && row.completed_date.trim() !== "";
+            // 파이썬 생성 파일의 빈 값(NaN 등) 대응
+            const compDate = row['completed_date'] ? row['completed_date'].trim() : "";
+            const isCompleted = compDate !== "" && compDate !== "-";
             const tr = document.createElement('tr');
             if (isCompleted) tr.className = 'completed-row';
 
             if (type === 'saramin') {
                 tr.innerHTML = `
-                    <td class="job-title">${row['기업명']}</td>
-                    <td>${row['공고명']}</td>
-                    <td class="text-center date-col">${row['경력']}</td>
-                    <td class="text-center date-col">${row['first-seen']}</td>
-                    <td class="text-center date-col">${row.completed_date || '-'}</td>
-                    <td class="text-center"><a href="${row['URL']}" target="_blank" class="btn-link-custom">공고보기</a></td>
+                    <td class="job-title">${row['기업명'] || '-'}</td>
+                    <td>${row['공고명'] || '-'}</td>
+                    <td class="text-center">${row['경력'] || '-'}</td>
+                    <td class="text-center">${row['first-seen'] || '-'}</td>
+                    <td class="text-center">${compDate || '-'}</td>
+                    <td class="text-center"><a href="${row['URL'] || '#'}" target="_blank" class="btn-link-custom">공고보기</a></td>
                 `;
             } else {
-                const taskSummary = row['주요업무'] ? row['주요업무'].substring(0, 50) + '...' : '-';
+                const task = row['주요업무'] || "";
+                const taskSummary = task.length > 50 ? task.substring(0, 50) + '...' : task;
                 tr.innerHTML = `
-                    <td class="job-title">${row['공고명']}</td>
-                    <td class="task-text">${taskSummary}</td>
-                    <td class="text-center date-col">${row['first_seen']}</td>
-                    <td class="text-center date-col">${row.completed_date || '-'}</td>
-                    <td class="text-center"><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">공고보기</a></td>
+                    <td class="job-title">${row['공고명'] || '-'}</td>
+                    <td class="task-text">${taskSummary || '-'}</td>
+                    <td class="text-center">${row['first_seen'] || '-'}</td>
+                    <td class="text-center">${compDate || '-'}</td>
+                    <td class="text-center"><a href="${row['상세URL'] || '#'}" target="_blank" class="btn-link-custom">공고보기</a></td>
                 `;
             }
             tbody.appendChild(tr);
         });
     }
 
-    // 데이터 로드 호출
-    Papa.parse(SARAMIN_CSV_URL, {
-        download: true, header: true, skipEmptyLines: true,
-        complete: (results) => {
-            processAndRender(results.data, 'saramin-table-body', 'saramin');
-            document.getElementById('last-update-saramin').innerText = `갱신: ${new Date().toLocaleTimeString()}`;
-        }
-    });
+    function loadData(url, tbodyId, type, updateId) {
+        Papa.parse(url, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            // 파이썬 생성 파일 인코딩 문제(BOM) 해결을 위해 필드명 정리
+            transformHeader: function(h) { return h.trim().replace(/^\ufeff/, ""); },
+            complete: function(results) {
+                console.log(`${type} 데이터:`, results.data); // 확인용 로그
+                processAndRender(results.data, tbodyId, type);
+                document.getElementById(updateId).innerText = `최종갱신: ${new Date().toLocaleTimeString()}`;
+            },
+            error: function(err) {
+                console.error(`${type} 로딩 에러:`, err);
+                document.getElementById(tbodyId).innerHTML = `<tr><td colspan="6" class="error-msg">파일을 불러올 수 없습니다. (URL 확인 필요)</td></tr>`;
+            }
+        });
+    }
 
-    Papa.parse(BEP_CSV_URL, {
-        download: true, header: true, skipEmptyLines: true,
-        complete: (results) => {
-            processAndRender(results.data, 'bep-table-body', 'bep');
-            document.getElementById('last-update-bep').innerText = `갱신: ${new Date().toLocaleTimeString()}`;
-        }
-    });
+    loadData(SARAMIN_CSV_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
+    loadData(BEP_CSV_URL, 'bep-table-body', 'bep', 'last-update-bep');
 </script>
 </body>
 </html>
