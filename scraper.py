@@ -23,7 +23,7 @@ def clean_saramin_url(url):
     return url
 
 def scrape_saramin():
-    companies = ["대영채비", "이브이시스", "플러그링크", "볼트업", "차지비", "에버온"]
+    companies = ["대영채비", "이브이시스", "플러그링크", "볼트업", "차지비", "에버온","일렉링크"]
     csv_file = "saramin_results.csv"
     today = datetime.now().strftime('%Y-%m-%d')
     
