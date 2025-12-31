@@ -60,30 +60,71 @@
 </div>
 
 <script>
-    const SARAMIN_URL = 'https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/saramin_results.csv';
-    const BEP_URL = 'https://raw.githubusercontent.com/ian939/HR-crawler-updated/main/BEP_EV_Recruitment_Master.csv';
+    // GitHub 저장소 정보 (API 호출용)
+    const REPO_OWNER = 'ian939';
+    const REPO_NAME = 'HR-crawler-updated';
+    
+    // CSV 파일 경로
+    const SARAMIN_FILE = 'saramin_results.csv';
+    const BEP_FILE = 'BEP_EV_Recruitment_Master.csv';
+
+    const SARAMIN_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${SARAMIN_FILE}`;
+    const BEP_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/${BEP_FILE}`;
 
     let rawData = { saramin: [], bep: [] };
 
-    // 1. 데이터 로드 및 저장
+    // 1. 데이터 로드 및 갱신 시간 확인
     function init() {
-        loadData(SARAMIN_URL, 'saramin-table-body', 'saramin', 'last-update-saramin');
-        loadData(BEP_URL, 'bep-table-body', 'bep', 'last-update-bep');
+        // CSV 데이터 로드
+        loadData(SARAMIN_URL, 'saramin-table-body', 'saramin');
+        loadData(BEP_URL, 'bep-table-body', 'bep');
+
+        // GitHub API를 통해 실제 파일 수정 시간 로드
+        loadLastUpdate(SARAMIN_FILE, 'last-update-saramin');
+        loadLastUpdate(BEP_FILE, 'last-update-bep');
     }
 
-    function loadData(url, tbodyId, type, updateId) {
+    // [신규 기능] GitHub API로 커밋 시간 가져오기
+    async function loadLastUpdate(filename, elementId) {
+        const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?path=${filename}&page=1&per_page=1`;
+        const element = document.getElementById(elementId);
+        
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) throw new Error("API Error");
+            
+            const data = await response.json();
+            // GitHub UTC 시간을 한국 시간으로 변환
+            const lastCommitDate = new Date(data[0].commit.committer.date);
+            const formattedDate = lastCommitDate.toLocaleString('ko-KR', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+
+            element.innerText = `최종갱신: ${formattedDate}`;
+            // 업데이트 성공 시 스타일 변경 (선택사항)
+            element.classList.remove('bg-light', 'text-dark');
+            element.classList.add('bg-success', 'text-white');
+            
+        } catch (error) {
+            console.error("갱신 시간 로드 실패:", error);
+            element.innerText = "갱신 시간 확인 불가 (API 제한)";
+        }
+    }
+
+    function loadData(url, tbodyId, type) {
         Papa.parse(url, {
             download: true, header: true, skipEmptyLines: true,
             transformHeader: h => h.trim().replace(/^\ufeff/, ""),
             complete: function(results) {
                 rawData[type] = results.data;
                 renderTable(results.data, tbodyId, type);
-                document.getElementById(updateId).innerText = `최종갱신: ${new Date().toLocaleTimeString()}`;
+                // 기존의 시간 업데이트 로직은 삭제됨 (loadLastUpdate가 대신 처리)
             }
         });
     }
 
-    // 2. 테이블 렌더링
+    // 2. 테이블 렌더링 (기존 로직 유지)
     function renderTable(data, tbodyId, type) {
         const tbody = document.getElementById(tbodyId);
         tbody.innerHTML = '';
@@ -111,15 +152,12 @@
         });
     }
 
-    // 3. CSV 다운로드 기능 (핵심!)
+    // 3. CSV 다운로드 기능
     function downloadCSV(type) {
         const data = rawData[type];
         if (!data || data.length === 0) return alert("데이터가 없습니다.");
 
-        // PapaParse를 사용하여 JSON을 CSV 문자열로 변환
         const csv = Papa.unparse(data);
-        
-        // 한글 깨짐 방지를 위한 BOM 추가
         const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
