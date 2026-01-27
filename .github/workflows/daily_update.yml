@@ -28,7 +28,6 @@ jobs:
       # 1. 크롤링 스크립트 실행 (CSV 업데이트)
       - name: Run HR Scrapers
         run: |
-          python scraper.py
           python water_main.py
 
       # 2. [추가됨] 슬랙 알림 스크립트 실행
