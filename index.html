@@ -16,13 +16,30 @@
         .completed-row { text-decoration: line-through; color: #adb5bd !important; background-color: #fcfcfc; }
         .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 5px 15px; text-decoration: none; font-size: 0.8rem; }
         .section-margin { margin-top: 3rem; }
-        .nav-tabs .nav-link { color: #495057; font-weight: 600; }
-        .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; }
         
         /* 정렬 가능 헤더 스타일 */
-        .sortable { cursor: pointer; position: relative; }
-        .sortable:hover { background-color: #343a40 !important; text-decoration: underline; }
-        .sortable::after { content: ' ↕'; font-size: 0.8em; opacity: 0.5; }
+        .sortable { cursor: pointer; position: relative; white-space: nowrap; }
+        .sortable:hover { background-color: #343a40 !important; }
+        .sort-icon { font-size: 0.75rem; margin-left: 4px; opacity: 0.6; }
+
+        /* --- 브랜드 탭 스타일 추가 --- */
+        .nav-tabs { border-bottom: none; gap: 5px; }
+        .nav-link { border: 1px solid #dee2e6 !important; border-radius: 8px 8px 0 0 !important; font-weight: bold; transition: 0.3s; }
+        
+        /* 사람인: 화이트/그레이 */
+        #saramin-tab { background-color: #ffffff; color: #333; }
+        #saramin-tab.active { background-color: #f0f0f0 !important; border-bottom: 3px solid #333 !important; }
+
+        /* 원티드: 블루 */
+        #wanted-tab { background-color: #ffffff; color: #258bf7; }
+        #wanted-tab.active { background-color: #258bf7 !important; color: white !important; border-color: #258bf7 !important; }
+
+        /* 리멤버: 블랙 */
+        #remember-tab { background-color: #ffffff; color: #000000; }
+        #remember-tab.active { background-color: #000000 !important; color: white !important; border-color: #000000 !important; }
+        
+        /* 탭 컨텐츠 박스 테두리 (선택사항) */
+        .tab-content { border: 1px solid #dee2e6; padding: 20px; border-radius: 0 8px 8px 8px; background: #fff; }
     </style>
 </head>
 <body>
@@ -41,18 +58,29 @@
         <span class="badge bg-success text-white border" id="last-update-competitors">확인 중...</span>
     </div>
 
-    <ul class="nav nav-tabs mb-3" id="competitorTabs" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#saramin-pane" type="button">사람인</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#wanted-pane" type="button">원티드</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#remember-pane" type="button">리멤버</button></li>
+    <ul class="nav nav-tabs" id="competitorTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="saramin-tab" data-bs-toggle="tab" data-bs-target="#saramin-pane" type="button">사람인</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="wanted-tab" data-bs-toggle="tab" data-bs-target="#wanted-pane" type="button">원티드</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="remember-tab" data-bs-toggle="tab" data-bs-target="#remember-pane" type="button">리멤버</button>
+        </li>
     </ul>
 
-    <div class="tab-content">
+    <div class="tab-content" id="competitorTabsContent">
         <div class="tab-pane fade show active" id="saramin-pane">
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th class="sortable" onclick="sortDataByCompany('saramin', 'saramin-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('saramin', '기업명')">기업<span class="sort-icon">↕</span></th>
+                            <th>공고명</th><th>경력</th>
+                            <th class="sortable" onclick="sortTable('saramin', 'first-seen')">등록일<span class="sort-icon">↕</span></th>
+                            <th>완료일</th><th>상세보기</th>
+                        </tr>
                     </thead>
                     <tbody id="saramin-table-body"></tbody>
                 </table>
@@ -62,7 +90,12 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th class="sortable" onclick="sortDataByCompany('wanted', 'wanted-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('wanted', '기업명')">기업<span class="sort-icon">↕</span></th>
+                            <th>공고명</th><th>경력</th>
+                            <th class="sortable" onclick="sortTable('wanted', 'first-seen')">등록일<span class="sort-icon">↕</span></th>
+                            <th>완료일</th><th>상세보기</th>
+                        </tr>
                     </thead>
                     <tbody id="wanted-table-body"></tbody>
                 </table>
@@ -72,7 +105,12 @@
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th class="sortable" onclick="sortDataByCompany('remember', 'remember-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr>
+                            <th class="sortable" onclick="sortTable('remember', '기업명')">기업<span class="sort-icon">↕</span></th>
+                            <th>공고명</th><th>경력</th>
+                            <th class="sortable" onclick="sortTable('remember', 'first-seen')">등록일<span class="sort-icon">↕</span></th>
+                            <th>완료일</th><th>상세보기</th>
+                        </tr>
                     </thead>
                     <tbody id="remember-table-body"></tbody>
                 </table>
@@ -87,7 +125,7 @@
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead class="table-dark">
-                <tr><th>공고명</th><th>주요업무</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                <tr><th>공고명</th><th>주요업무</th><th class="sortable" onclick="sortTable('bep', 'first_seen')">등록일<span class="sort-icon">↕</span></th><th>완료일</th><th>상세보기</th></tr>
             </thead>
             <tbody id="bep-table-body"></tbody>
         </table>
@@ -102,7 +140,12 @@
     const BASE_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/`;
     
     let rawData = { saramin: [], wanted: [], remember: [], bep: [] };
-    let sortOrders = { saramin: 'asc', wanted: 'asc', remember: 'asc' }; // 정렬 상태 추적
+    let sortState = { 
+        saramin: { col: 'first-seen', order: 'desc' }, 
+        wanted: { col: 'first-seen', order: 'desc' }, 
+        remember: { col: 'first-seen', order: 'desc' },
+        bep: { col: 'first_seen', order: 'desc' }
+    };
 
     function init() {
         loadData(BASE_URL + FILES.saramin, 'saramin-table-body', 'saramin');
@@ -113,25 +156,28 @@
         loadLastUpdate(FILES.bep, 'last-update-bep');
     }
 
-    // [핵심 추가] 기업명 기준 정렬 함수
-    function sortDataByCompany(type, tbodyId) {
+    function sortTable(type, column) {
         const data = rawData[type];
-        const currentOrder = sortOrders[type];
-
+        const isSameCol = sortState[type].col === column;
+        const order = (isSameCol && sortState[type].order === 'desc') ? 'asc' : 'desc';
+        
         data.sort((a, b) => {
-            const nameA = a['기업명'] || '';
-            const nameB = b['기업명'] || '';
-            
-            if (currentOrder === 'asc') {
-                return nameB.localeCompare(nameA, 'ko'); // 내림차순 (요청하신 기준)
+            const compA = (a.completed_date && a.completed_date !== "-" && a.completed_date.trim() !== "") ? 1 : 0;
+            const compB = (b.completed_date && b.completed_date !== "-" && b.completed_date.trim() !== "") ? 1 : 0;
+            if (compA !== compB) return compA - compB;
+
+            let valA = a[column] || '';
+            let valB = b[column] || '';
+
+            if (column.includes('seen')) {
+                return order === 'desc' ? new Date(valB) - new Date(valA) : new Date(valA) - new Date(valB);
             } else {
-                return nameA.localeCompare(nameB, 'ko'); // 오름차순
+                return order === 'desc' ? valB.localeCompare(valA, 'ko') : valA.localeCompare(valB, 'ko');
             }
         });
 
-        // 상태 스위칭
-        sortOrders[type] = (currentOrder === 'asc' ? 'desc' : 'asc');
-        renderTable(data, tbodyId, type);
+        sortState[type] = { col: column, order: order };
+        renderTable(data, `${type}-table-body`, type);
     }
 
     function loadData(url, tbodyId, type) {
@@ -140,7 +186,8 @@
             transformHeader: h => h.trim().replace(/^\ufeff/, ""),
             complete: function(results) {
                 rawData[type] = results.data;
-                renderTable(results.data, tbodyId, type);
+                const dateCol = type === 'bep' ? 'first_seen' : 'first-seen';
+                sortTable(type, dateCol);
             }
         });
     }
@@ -149,13 +196,10 @@
         const tbody = document.getElementById(tbodyId);
         if(!tbody) return;
         tbody.innerHTML = '';
-        
-        // 기본 렌더링 (이미 정렬된 데이터가 들어옴)
         data.forEach(row => {
             const isCompleted = row.completed_date && row.completed_date.trim() !== "" && row.completed_date !== "-";
             const tr = document.createElement('tr');
             if (isCompleted) tr.className = 'completed-row';
-            
             if (type === 'bep') {
                 tr.innerHTML = `<td>${row['공고명']}</td><td>${(row['주요업무'] || '').substring(0,50)}...</td><td>${row.first_seen}</td><td>${row.completed_date || '-'}</td><td><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">보기</a></td>`;
             } else {
@@ -193,7 +237,6 @@
             await new Promise(r => setTimeout(r, 500));
         }
     }
-
     init();
 </script>
 </body>
