@@ -30,6 +30,8 @@ jobs:
         run: |
           python scraper.py
           python water_main.py
+          python wanted.py
+          python remember.py
 
       # 2. [추가됨] 슬랙 알림 스크립트 실행
       # (앞서 만든 notify_new_jobs.py가 레포지토리에 있어야 합니다)
@@ -38,15 +40,14 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python notify_new_jobs.py
 
-      # 3. [수정됨] 변경사항 저장 및 푸시
-      # CSV 파일뿐만 아니라 알림 기록(sent_logs.txt)도 함께 저장해야 중복 알림을 막을 수 있습니다.
+# 3. [수정됨] 변경사항 저장 및 푸시
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # CSV 파일 2개와 알림 로그 파일(sent_logs.txt)을 모두 스테이징
-          git add BEP_EV_Recruitment_Master.csv saramin_results.csv sent_logs.txt
+          # [수정] 모든 CSV 파일과 로그 파일을 스테이징 (새로 생긴 wanted/remember csv도 포함됨)
+          git add *.csv sent_logs.txt
           
           # 변경사항이 있을 때만 커밋
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update HR data & logs: $(date +'%Y-%m-%d %H:%M')" && git push)
