@@ -9,20 +9,20 @@
     <style>
         body { background-color: #f8f9fa; font-family: 'Pretendard', sans-serif; }
         .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        
-        /* 다운로드 버튼 스타일 */
         .download-header { background: #e9ecef; padding: 15px; border-radius: 10px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
         .btn-download-csv { background-color: #198754; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-weight: 600; cursor: pointer; transition: 0.2s; margin-left: 5px;}
         .btn-download-csv:hover { background-color: #146c43; }
-
         .header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
         .completed-row { text-decoration: line-through; color: #adb5bd !important; background-color: #fcfcfc; }
         .btn-link-custom { background-color: #0d6efd; color: white; border-radius: 20px; padding: 5px 15px; text-decoration: none; font-size: 0.8rem; }
         .section-margin { margin-top: 3rem; }
-        
-        /* 탭 스타일 조정 */
         .nav-tabs .nav-link { color: #495057; font-weight: 600; }
         .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; }
+        
+        /* 정렬 가능 헤더 스타일 */
+        .sortable { cursor: pointer; position: relative; }
+        .sortable:hover { background-color: #343a40 !important; text-decoration: underline; }
+        .sortable::after { content: ' ↕'; font-size: 0.8em; opacity: 0.5; }
     </style>
 </head>
 <body>
@@ -42,43 +42,37 @@
     </div>
 
     <ul class="nav nav-tabs mb-3" id="competitorTabs" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active" id="saramin-tab" data-bs-toggle="tab" data-bs-target="#saramin-pane" type="button">사람인</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="wanted-tab" data-bs-toggle="tab" data-bs-target="#wanted-pane" type="button">원티드</button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="remember-tab" data-bs-toggle="tab" data-bs-target="#remember-pane" type="button">리멤버</button>
-        </li>
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#saramin-pane" type="button">사람인</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#wanted-pane" type="button">원티드</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#remember-pane" type="button">리멤버</button></li>
     </ul>
 
-    <div class="tab-content" id="competitorTabsContent">
-        <div class="tab-pane fade show active" id="saramin-pane" role="tabpanel">
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="saramin-pane">
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th>기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr><th class="sortable" onclick="sortDataByCompany('saramin', 'saramin-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
                     </thead>
                     <tbody id="saramin-table-body"></tbody>
                 </table>
             </div>
         </div>
-        <div class="tab-pane fade" id="wanted-pane" role="tabpanel">
+        <div class="tab-pane fade" id="wanted-pane">
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th>기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr><th class="sortable" onclick="sortDataByCompany('wanted', 'wanted-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
                     </thead>
                     <tbody id="wanted-table-body"></tbody>
                 </table>
             </div>
         </div>
-        <div class="tab-pane fade" id="remember-pane" role="tabpanel">
+        <div class="tab-pane fade" id="remember-pane">
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-dark">
-                        <tr><th>기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
+                        <tr><th class="sortable" onclick="sortDataByCompany('remember', 'remember-table-body')">기업</th><th>공고명</th><th>경력</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
                     </thead>
                     <tbody id="remember-table-body"></tbody>
                 </table>
@@ -91,7 +85,7 @@
         <span class="badge bg-light text-dark border" id="last-update-bep">확인 중...</span>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover align-middle" id="bep-table">
+        <table class="table table-hover align-middle">
             <thead class="table-dark">
                 <tr><th>공고명</th><th>주요업무</th><th>등록일</th><th>완료일</th><th>상세보기</th></tr>
             </thead>
@@ -104,42 +98,40 @@
 <script>
     const REPO_OWNER = 'ian939';
     const REPO_NAME = 'HR-crawler-updated';
-    
-    // 파일 정보 설정
-    const FILES = {
-        saramin: 'saramin_results.csv',
-        wanted: 'wanted_results.csv',
-        remember: 'remember_results.csv',
-        bep: 'BEP_EV_Recruitment_Master.csv'
-    };
-
+    const FILES = { saramin: 'saramin_results.csv', wanted: 'wanted_results.csv', remember: 'remember_results.csv', bep: 'BEP_EV_Recruitment_Master.csv' };
     const BASE_URL = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/main/`;
+    
     let rawData = { saramin: [], wanted: [], remember: [], bep: [] };
+    let sortOrders = { saramin: 'asc', wanted: 'asc', remember: 'asc' }; // 정렬 상태 추적
 
     function init() {
-        // 각 데이터 로드
         loadData(BASE_URL + FILES.saramin, 'saramin-table-body', 'saramin');
         loadData(BASE_URL + FILES.wanted, 'wanted-table-body', 'wanted');
         loadData(BASE_URL + FILES.remember, 'remember-table-body', 'remember');
         loadData(BASE_URL + FILES.bep, 'bep-table-body', 'bep');
-
-        // 업데이트 시간 확인 (경쟁사는 사람인 파일 기준으로 대표 표시)
         loadLastUpdate(FILES.saramin, 'last-update-competitors');
         loadLastUpdate(FILES.bep, 'last-update-bep');
     }
 
-    async function loadLastUpdate(filename, elementId) {
-        const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?path=${filename}&page=1&per_page=1`;
-        const element = document.getElementById(elementId);
-        try {
-            const response = await fetch(apiUrl);
-            if (!response.ok) throw new Error("API Error");
-            const data = await response.json();
-            const lastCommitDate = new Date(data[0].commit.committer.date);
-            element.innerText = `최종갱신: ${lastCommitDate.toLocaleString('ko-KR')}`;
-        } catch (error) {
-            element.innerText = "갱신 시간 확인 불가";
-        }
+    // [핵심 추가] 기업명 기준 정렬 함수
+    function sortDataByCompany(type, tbodyId) {
+        const data = rawData[type];
+        const currentOrder = sortOrders[type];
+
+        data.sort((a, b) => {
+            const nameA = a['기업명'] || '';
+            const nameB = b['기업명'] || '';
+            
+            if (currentOrder === 'asc') {
+                return nameB.localeCompare(nameA, 'ko'); // 내림차순 (요청하신 기준)
+            } else {
+                return nameA.localeCompare(nameB, 'ko'); // 오름차순
+            }
+        });
+
+        // 상태 스위칭
+        sortOrders[type] = (currentOrder === 'asc' ? 'desc' : 'asc');
+        renderTable(data, tbodyId, type);
     }
 
     function loadData(url, tbodyId, type) {
@@ -158,15 +150,7 @@
         if(!tbody) return;
         tbody.innerHTML = '';
         
-        // 정렬 로직 (기존 유지)
-        data.sort((a, b) => {
-            const dateA = (type === 'bep' ? a.first_seen : a['first-seen']) || '0';
-            const dateB = (type === 'bep' ? b.first_seen : b['first-seen']) || '0';
-            const compA = a.completed_date ? 1 : 0;
-            const compB = b.completed_date ? 1 : 0;
-            return (compA - compB) || (new Date(dateB) - new Date(dateA));
-        });
-
+        // 기본 렌더링 (이미 정렬된 데이터가 들어옴)
         data.forEach(row => {
             const isCompleted = row.completed_date && row.completed_date.trim() !== "" && row.completed_date !== "-";
             const tr = document.createElement('tr');
@@ -175,18 +159,26 @@
             if (type === 'bep') {
                 tr.innerHTML = `<td>${row['공고명']}</td><td>${(row['주요업무'] || '').substring(0,50)}...</td><td>${row.first_seen}</td><td>${row.completed_date || '-'}</td><td><a href="${row['상세URL']}" target="_blank" class="btn-link-custom">보기</a></td>`;
             } else {
-                // 경쟁사 3종 (사람인, 원티드, 리멤버 공통 필드 구조)
                 tr.innerHTML = `<td>${row['기업명'] || '-'}</td><td>${row['공고명'] || '-'}</td><td>${row['경력'] || '-'}</td><td>${row['first-seen'] || '-'}</td><td>${row.completed_date || '-'}</td><td><a href="${row.URL}" target="_blank" class="btn-link-custom">보기</a></td>`;
             }
             tbody.appendChild(tr);
         });
     }
 
-    // 개별 다운로드 함수
+    async function loadLastUpdate(filename, elementId) {
+        const apiUrl = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits?path=${filename}&page=1&per_page=1`;
+        const element = document.getElementById(elementId);
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            const lastCommitDate = new Date(data[0].commit.committer.date);
+            element.innerText = `최종갱신: ${lastCommitDate.toLocaleString('ko-KR')}`;
+        } catch (e) { element.innerText = "갱신 시간 확인 불가"; }
+    }
+
     function downloadCSV(type) {
         const data = rawData[type];
         if (!data || data.length === 0) return;
-
         const csv = Papa.unparse(data);
         const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
@@ -195,13 +187,10 @@
         link.click();
     }
 
-    // 경쟁사 데이터 3종 일괄 다운로드
     async function downloadCompetitors() {
-        const targets = ['saramin', 'wanted', 'remember'];
-        for (const type of targets) {
+        for (const type of ['saramin', 'wanted', 'remember']) {
             downloadCSV(type);
-            // 브라우저 차단 방지를 위한 미세한 간격
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(r => setTimeout(r, 500));
         }
     }
 
